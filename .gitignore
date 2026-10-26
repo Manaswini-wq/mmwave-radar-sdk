@@ -1,0 +1,36 @@
+# Build artifacts
+build/
+*.o
+*.obj
+*.elf
+*.bin
+*.hex
+*.map
+*.out
+*.d
+*.lst
+
+# IDE
+.vscode/
+.idea/
+*.code-workspace
+.ccs/
+.project
+.cproject
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Debug
+*.log
+core.*

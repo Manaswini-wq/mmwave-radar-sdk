@@ -1,0 +1,28 @@
+name: Documentation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - 'sdk/**/*.h'
+      - 'tools/perl/api_doc_generator.pl'
+
+jobs:
+  generate-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Perl
+        run: sudo apt-get install -y perl
+
+      - name: Generate API docs
+        run: perl tools/perl/api_doc_generator.pl --src sdk/app_api --out docs/api_reference_gen.md
+
+      - name: Upload docs artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: generated-docs
+          path: docs/

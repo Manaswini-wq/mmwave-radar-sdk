@@ -1,0 +1,92 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        platform: [awr2944, iwr6843]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-arm-none-eabi cmake cppcheck lcov
+
+      - name: Build SDK (${{ matrix.platform }})
+        run: |
+          cmake -B build \
+            -DPLATFORM=${{ matrix.platform }} \
+            -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --parallel $(nproc)
+
+      - name: Build debug variant
+        run: |
+          cmake -B build-debug \
+            -DPLATFORM=${{ matrix.platform }} \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DENABLE_COVERAGE=ON
+          cmake --build build-debug --parallel $(nproc)
+
+  unit-tests:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc cmake lcov
+
+      - name: Build host tests
+        run: |
+          cmake -B build-test \
+            -DPLATFORM=host \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DENABLE_COVERAGE=ON \
+            -DBUILD_TESTS=ON
+          cmake --build build-test --parallel $(nproc)
+
+      - name: Run unit tests
+        run: ctest --test-dir build-test --output-on-failure
+
+      - name: Generate coverage report
+        run: |
+          lcov --capture --directory build-test --output-file coverage.info
+          lcov --remove coverage.info '/usr/*' '*/tests/*' '*/unity/*' \
+               --output-file coverage_filtered.info
+          lcov --list coverage_filtered.info
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage_filtered.info
+
+  static-analysis:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install cppcheck
+        run: sudo apt-get install -y cppcheck
+
+      - name: Run cppcheck
+        run: |
+          cppcheck --enable=all --inconclusive --std=c11 \
+            --suppress=missingIncludeSystem \
+            -DPLATFORM_IWR6843 \
+            -I sdk/include -I sdk/app_api -I sdk/hal \
+            sdk/ examples/ \
+            --error-exitcode=1
